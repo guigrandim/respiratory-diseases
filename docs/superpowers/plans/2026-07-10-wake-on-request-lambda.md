@@ -509,10 +509,19 @@ cat > /tmp/wake-permissions-policy.json <<EOF
   "Statement": [
     {
       "Effect": "Allow",
+      "Action": "ecs:ListTasks",
+      "Resource": "*",
+      "Condition": {
+        "ArnEquals": {
+          "ecs:cluster": "arn:aws:ecs:${REGION}:${ACCOUNT_ID}:cluster/${CLUSTER}"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
       "Action": [
         "ecs:DescribeServices",
         "ecs:UpdateService",
-        "ecs:ListTasks",
         "ecs:DescribeTasks"
       ],
       "Resource": [
@@ -546,7 +555,9 @@ aws iam put-role-policy \
 
 Expected: no output on success (put-role-policy is silent).
 
-Note: `ec2:DescribeNetworkInterfaces` doesn't support resource-level restriction, hence `Resource: "*"` for that statement only — it's a read-only, account-wide-safe action.
+Notes (corrected during execution, 2026-07-10):
+- `ec2:DescribeNetworkInterfaces` doesn't support resource-level restriction, hence `Resource: "*"` for that statement only — it's a read-only, account-wide-safe action.
+- `ecs:ListTasks` also doesn't support resource-level restriction to a `service`/`task` ARN the way `DescribeServices`/`UpdateService`/`DescribeTasks` do — attempting that produces `AccessDeniedException ... on resource: arn:...:container-instance/<cluster>/*` even though no container-instance ARN was referenced. The correct pattern (per AWS's own ECS IAM examples) is `Resource: "*"` combined with an `ecs:cluster` ArnEquals condition scoping it to the one cluster.
 
 - [ ] **Step 4: Confirm the role is ready**
 
@@ -568,17 +579,22 @@ Also real AWS calls. Continue in the same AWS-CLI-configured environment as Task
 
 - [ ] **Step 1: Zip the handler code**
 
+`handler.py` uses relative imports (`from .decision import decide`), so it must be deployed as a real package, not as flat top-level files — a flat zip produces `Runtime.ImportModuleError: attempted relative import with no known parent package` at cold start. Zip the whole `lambda_wake` directory (including `__init__.py`), preserving the folder structure, and make sure no `__pycache__` directory sneaks in:
+
 ```bash
-cd scripts/lambda_wake
-zip -r /tmp/wake-lambda.zip handler.py decision.py templates.py
+find scripts/lambda_wake -name __pycache__ -type d -exec rm -rf {} +
+cd scripts
+zip -r /tmp/wake-lambda.zip lambda_wake -x '*__pycache__*'
 cd -
 ```
 
-Expected: `/tmp/wake-lambda.zip` created, containing the three `.py` files at the zip root (Lambda needs `handler.py` importable as a top-level module, not nested under `lambda_wake/`).
+(On Windows without `zip`, `Compress-Archive -Path scripts\lambda_wake -DestinationPath wake-lambda.zip -Force` from PowerShell produces the same layout — verify with `Expand-Archive` that it only contains `lambda_wake/{__init__.py,decision.py,handler.py,templates.py}`, no `__pycache__`.)
+
+Expected: `/tmp/wake-lambda.zip` created, containing a `lambda_wake/` folder with the three `.py` files plus `__init__.py` inside it.
 
 - [ ] **Step 2: Create the Lambda function**
 
-Wait ~10 seconds after Task 5 for IAM role propagation before running this.
+Wait ~10 seconds after Task 5 for IAM role propagation before running this. Because the zip preserves the `lambda_wake/` package, `--handler` must reference the package path, not just `handler.lambda_handler`:
 
 ```bash
 ROLE_ARN=$(aws iam get-role --role-name respiratory-diseases-wake-role --query 'Role.Arn' --output text)
@@ -590,7 +606,7 @@ aws lambda create-function \
   --function-name respiratory-diseases-wake \
   --runtime python3.12 \
   --role "$ROLE_ARN" \
-  --handler handler.lambda_handler \
+  --handler lambda_wake.handler.lambda_handler \
   --timeout 10 \
   --memory-size 128 \
   --zip-file fileb:///tmp/wake-lambda.zip \
@@ -600,7 +616,16 @@ aws lambda create-function \
 
 Expected: JSON output with `FunctionName: respiratory-diseases-wake` and `State: Active` (or `Pending`, then check with `aws lambda get-function --function-name respiratory-diseases-wake`).
 
-- [ ] **Step 3: Cap concurrency to avoid overlapping start races**
+Sanity check before moving on — invoke it directly (bypasses the Function URL/HTTP layer entirely, isolating "does the code run" from "is the URL reachable"):
+
+```bash
+aws lambda invoke --function-name respiratory-diseases-wake --region us-east-1 /tmp/out.json --log-type Tail --query 'LogResult' --output text | base64 -d
+cat /tmp/out.json
+```
+
+Expected: no `Runtime.ImportModuleError` or `AccessDeniedException` in the log tail; `/tmp/out.json` contains a `{"statusCode": 200, ...}` wait-page response (or a 302 if a task happens to already be running/warm).
+
+- [ ] **Step 3: Cap concurrency to avoid overlapping start races (best-effort)**
 
 ```bash
 aws lambda put-function-concurrency \
@@ -610,6 +635,8 @@ aws lambda put-function-concurrency \
 ```
 
 Expected: JSON confirming `ReservedConcurrentExecutions: 1`.
+
+This can fail with `InvalidParameterValueException: ... decreases account's UnreservedConcurrentExecution below its minimum value of [10]` on accounts still at the default 10-execution account-wide concurrency limit (check with `aws lambda get-account-settings --query AccountLimit`). If so, skip this step — it's a race-condition safety net, not required for correctness (repeated `ecs:UpdateService(desiredCount=1)` calls are idempotent), and raising the account limit requires an AWS Support request.
 
 - [ ] **Step 4: Create the public Function URL**
 
@@ -624,6 +651,8 @@ Expected: JSON with a `FunctionUrl` like `https://<id>.lambda-url.us-east-1.on.a
 
 - [ ] **Step 5: Allow public invocation via the Function URL**
 
+Since October 2025, AWS requires **both** `lambda:InvokeFunctionUrl` (scoped to the Function URL's `NONE` auth type) **and** a plain `lambda:InvokeFunction` grant — granting only the first now still produces `403 Forbidden {"Message":"Forbidden. For troubleshooting..."}` at the Function URL itself (no invocation, nothing in CloudWatch Logs, so it's easy to mistake for a DNS/network issue). The `--function-url-auth-type` flag is rejected on `InvokeFunction` (`FunctionUrlAuthType is only supported for lambda:InvokeFunctionUrl action`), so the second statement has no condition — it's a broader public grant, but no broader in practice than what visiting the public URL already allows (the "fora de escopo" no-auth trade-off the design doc already accepts):
+
 ```bash
 aws lambda add-permission \
   --function-name respiratory-diseases-wake \
@@ -632,9 +661,16 @@ aws lambda add-permission \
   --principal "*" \
   --function-url-auth-type NONE \
   --region us-east-1
+
+aws lambda add-permission \
+  --function-name respiratory-diseases-wake \
+  --statement-id FunctionURLAllowPublicInvoke \
+  --action lambda:InvokeFunction \
+  --principal "*" \
+  --region us-east-1
 ```
 
-Expected: JSON confirming the permission statement was added.
+Expected: JSON confirming each permission statement was added (two separate calls, two separate `Sid`s).
 
 - [ ] **Step 6: Smoke test while the ECS service is stopped**
 
