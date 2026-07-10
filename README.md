@@ -6,6 +6,51 @@ Epidemiológica da Gripe, DATASUS), para sugerir a classificação final
 (`classi_fin`) de um caso notificado de Síndrome Respiratória Aguda Grave a
 partir de dados clínicos e de atendimento.
 
+## Destaque do projeto (modelo STAR)
+
+**Situação**: o DATASUS disponibiliza publicamente os dados do SIVEP-Gripe
+(notificações de Síndrome Respiratória Aguda Grave), mas a conta AWS usada
+neste projeto não tinha cota para instâncias `ml.*` do SageMaker — o caminho
+"padrão" de treinar/servir via SageMaker Estimator/Endpoint gerenciado estava
+descartado.
+
+**Tarefa**: construir, do zero, um classificador multiclasse (5 classes de
+`classi_fin`) com uma aplicação usável ponta a ponta — treino, empacotamento
+do modelo, serviço de inferência e frontend — hospedada na AWS, gastando o
+mínimo possível de recurso, já que é um projeto de portfólio sem tráfego
+constante.
+
+**Ação**:
+- Engenharia de features (faixa etária, score de comorbidades, macro-região,
+  sazonalidade via seno/cosseno da semana epidemiológica, score vacinal) e
+  treino de um XGBoost nativo (early stopping, pesos de amostra balanceados)
+  direto no notebook, sem depender do Estimator gerenciado do SageMaker.
+- Contornei a falta de cota de endpoint gerenciado empacotando o modelo
+  (`pickle`) e servindo via uma AWS Lambda em container (Docker + ECR), com o
+  `objective` ajustado para `multi:softprob` **sem retreino** para expor a
+  confiança por classe, não só o rótulo vencedor.
+- Investiguei a procedência de uma feature crítica não documentada
+  oficialmente (`delta_uti`, a de maior peso no modelo treinado) cruzando o
+  dicionário oficial de dados do SIVEP-Gripe, o catálogo Glue/Athena da
+  tabela de origem e uma consulta agregada no Athena — documentando a
+  limitação encontrada em vez de ocultá-la.
+- Construí um frontend Streamlit (página de apresentação + formulário) que
+  invoca a Lambda via `boto3`, containerizei com Docker e implantei em ECS
+  Fargate.
+- Reduzi o custo de infraestrutura a zero quando ocioso: o serviço fica com
+  `desiredCount=0` por padrão, com scripts de start/stop e uma Lambda de
+  auto-stop (via EventBridge) que desliga o serviço automaticamente após um
+  limite de tempo de uptime.
+- Revisei o código com um agente independente antes de ir para produção,
+  corrigindo dependências não usadas e uma imagem-base desatualizada no
+  Dockerfile.
+
+**Resultado**: modelo com **68% de acurácia** e **F1 ponderado de 0.67** no
+conjunto de teste (nunca visto durante o treino/early stopping); pipeline
+completo em produção na AWS (Streamlit → Lambda → XGBoost) com custo de
+infraestrutura efetivamente zero quando não está em uso; limitações
+conhecidas documentadas de forma transparente em vez de escondidas.
+
 ## Arquitetura
 
 ```
