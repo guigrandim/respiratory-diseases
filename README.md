@@ -56,9 +56,10 @@ constante.
   invoca a Lambda via `boto3`, containerizei com Docker e implantei em ECS
   Fargate.
 - Reduzi o custo de infraestrutura a zero quando ocioso: o serviço fica com
-  `desiredCount=0` por padrão, com scripts de start/stop e uma Lambda de
-  auto-stop (via EventBridge) que desliga o serviço automaticamente após um
-  limite de tempo de uptime.
+  `desiredCount=0` por padrão, ligando sozinho sob demanda via uma Lambda
+  "porteira" (Function URL pública), com script de parada manual e uma
+  Lambda de auto-stop (via EventBridge) que desliga o serviço
+  automaticamente após um limite de tempo de uptime.
 - Revisei o código com um agente independente antes de ir para produção,
   corrigindo dependências não usadas e uma imagem-base desatualizada no
   Dockerfile.
