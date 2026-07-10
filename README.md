@@ -132,3 +132,7 @@ exata com quem construiu o pipeline de dados de origem.
 - `assets/` — ficha oficial de notificação do SIVEP-Gripe (PDF), usada como
   referência para os códigos dos campos do formulário.
 - `assets/img/arquitetura.png` — diagrama da arquitetura usado na seção acima.
+
+## Licença
+
+Distribuído sob a licença MIT — veja [LICENSE](LICENSE).
