@@ -15,9 +15,12 @@ partir de dados clínicos e de atendimento.
 ## Demo ao vivo
 
 Este projeto usa *scale-to-zero* para reduzir custo — o serviço ECS fica
-desligado por padrão (veja a seção "Deploy" abaixo). Para ativar uma
-instância de demonstração, [me contate](mailto:gui.grandim@gmail.com) ou
-siga as instruções de deploy abaixo para rodar você mesmo.
+desligado por padrão (veja a seção "Deploy" abaixo).
+
+**Link atual:** nenhuma instância ativa no momento
+
+Para ativar uma instância de demonstração, [me contate](mailto:gui.grandim@gmail.com)
+ou siga as instruções de deploy abaixo para rodar você mesmo.
 
 ## Destaque do projeto (modelo STAR)
 
