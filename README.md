@@ -53,16 +53,37 @@ conhecidas documentadas de forma transparente em vez de escondidas.
 
 ## Arquitetura
 
-```
-Streamlit (home.py + pages/1_Formulario.py)
-        │  boto3 invoke (RequestResponse)
-        ▼
-AWS Lambda (container image, xgboost-cpu)
-        │  s3.download_file
-        ▼
-model.pkl (S3) — Booster treinado no notebook SageMaker (notebooks/Untitled.ipynb)
+```mermaid
+flowchart TD
+    IAM[["IAM<br/>roles e policies"]]
+
+    DADOS["SIVEP-Gripe / DATASUS<br/>(dados históricos)"] --> CATALOG
+    CATALOG{{"Glue Catalog<br/>database_health_bridge.<br/>table_train_gg_solutionstrain"}} --> S3CURADO[("S3<br/>train.parquet")]
+    ATHENA["Athena<br/>(consultas ad-hoc, ex.:<br/>investigação do delta_uti)"] <--> CATALOG
+
+    subgraph PIPELINE["Pipeline SageMaker"]
+        NOTEBOOK["Notebook<br/>notebooks/Untitled.ipynb<br/>feature engineering + treino XGBoost"]
+    end
+
+    S3CURADO --> NOTEBOOK
+    ATHENA -. ad-hoc .-> NOTEBOOK
+    NOTEBOOK --> MODELPKL[("model.pkl (S3)<br/>Booster treinado")]
+
+    STREAMLIT["Formulário Streamlit<br/>home.py + pages/1_Formulario.py"] --> ECS["ECS Fargate<br/>(sob demanda,<br/>desiredCount=0 por padrão)"]
+    ECS -- boto3 invoke --> LAMBDA["AWS Lambda<br/>container, xgboost-cpu,<br/>objective=multi:softprob"]
+    LAMBDA -- s3.download_file --> MODELPKL
+
+    IAM -.-> CATALOG
+    IAM -.-> LAMBDA
+    IAM -.-> ECS
+    IAM -.-> NOTEBOOK
 ```
 
+- A tabela de origem (`database_health_bridge.table_train_gg_solutionstrain`,
+  Glue Catalog) é o dado histórico do SIVEP-Gripe já catalogado; o Athena é
+  usado tanto para materializar o `train.parquet` consumido pelo notebook
+  quanto para consultas ad-hoc de investigação (ex.: a distribuição do
+  `delta_uti`, ver ressalva abaixo).
 - O treino (split, feature engineering, XGBoost, avaliação) roda inteiramente
   no notebook `notebooks/Untitled.ipynb` (fonte da verdade, espelha o que
   roda no SageMaker) e persiste o modelo via `pickle`.
@@ -71,6 +92,8 @@ model.pkl (S3) — Booster treinado no notebook SageMaker (notebooks/Untitled.ip
   carrega o `model.pkl` do S3 e roda `booster.predict`.
 - O modelo usa `objective='multi:softprob'`, retornando a probabilidade das 5
   classes por caso (não apenas o rótulo vencedor).
+- O Streamlit roda em ECS Fargate sob demanda (ver seção "Deploy" abaixo),
+  não como servidor sempre ligado.
 
 ## Rodando localmente
 
