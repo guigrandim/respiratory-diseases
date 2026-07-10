@@ -53,4 +53,7 @@ def lambda_handler(event, context):
         return wait_response()
 
     running_task = next(t for t in tasks if t.get("lastStatus") == "RUNNING")
-    return redirect_response(_public_ip(running_task), PORT)
+    try:
+        return redirect_response(_public_ip(running_task), PORT)
+    except Exception:
+        return wait_response()

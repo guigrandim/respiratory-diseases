@@ -89,3 +89,36 @@ def test_handler_redirects_when_task_ready(mock_boto_client, monkeypatch):
 
     assert response["statusCode"] == 302
     assert response["headers"]["Location"] == "http://1.2.3.4:8501"
+
+
+@patch("boto3.client")
+def test_handler_falls_back_to_wait_page_when_redirect_construction_fails(mock_boto_client, monkeypatch):
+    monkeypatch.setenv("CLUSTER", "test-cluster")
+    monkeypatch.setenv("SERVICE", "test-service")
+    monkeypatch.setenv("REGION", "us-east-1")
+    monkeypatch.setenv("PORT", "8501")
+
+    mock_ecs, mock_ec2 = MagicMock(), MagicMock()
+    _patch_boto_clients(mock_boto_client, mock_ecs, mock_ec2)
+
+    started_at = datetime.now(timezone.utc) - timedelta(seconds=30)
+    mock_ecs.describe_services.return_value = {"services": [{"desiredCount": 1}]}
+    mock_ecs.list_tasks.return_value = {"taskArns": ["arn:aws:ecs:task/1"]}
+    mock_ecs.describe_tasks.return_value = {
+        "tasks": [
+            {
+                "lastStatus": "RUNNING",
+                "startedAt": started_at,
+                # No networkInterfaceId attachment present yet -> _public_ip
+                # raises StopIteration instead of returning an IP.
+                "attachments": [{"details": []}],
+            }
+        ]
+    }
+    mock_ec2.describe_network_interfaces.side_effect = Exception("boom")
+
+    handler = _reload_handler()
+    response = handler.lambda_handler({}, None)
+
+    assert response["statusCode"] == 200
+    assert "refresh" in response["body"].lower()
