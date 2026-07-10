@@ -6,6 +6,14 @@ Epidemiológica da Gripe, DATASUS), para sugerir a classificação final
 (`classi_fin`) de um caso notificado de Síndrome Respiratória Aguda Grave a
 partir de dados clínicos e de atendimento.
 
+## Demo ao vivo
+
+**Link atual:** offline no momento (última atualização: N/A)
+
+O app roda sob demanda para economizar custo de AWS (veja a seção "Deploy"
+abaixo) — o link acima só funciona enquanto estiver ligado. Se estiver
+offline, [me chame](mailto:gui.grandim@gmail.com) que eu ligo na hora.
+
 ## Destaque do projeto (modelo STAR)
 
 **Situação**: o DATASUS disponibiliza publicamente os dados do SIVEP-Gripe

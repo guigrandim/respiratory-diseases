@@ -9,6 +9,8 @@ CLUSTER="respiratory-diseases-cluster"
 SERVICE="respiratory-diseases-task-service-l0kgkxxb"
 REGION="us-east-1"
 PORT=8501
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+README="$SCRIPT_DIR/../README.md"
 
 echo "Ligando o servico ECS ($SERVICE)..."
 aws ecs update-service \
@@ -28,6 +30,14 @@ ENI_ID=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" --regio
 PUBLIC_IP=$(aws ec2 describe-network-interfaces --network-interface-ids "$ENI_ID" --region "$REGION" \
   --query 'NetworkInterfaces[0].Association.PublicIp' --output text)
 
+LINK="http://${PUBLIC_IP}:${PORT}"
+TIMESTAMP=$(date '+%d/%m/%Y %H:%M %Z')
+
+if [ -f "$README" ]; then
+  sed -i "s|^\*\*Link atual:\*\*.*|**Link atual:** ${LINK} (última atualização: ${TIMESTAMP})|" "$README"
+  echo "README.md atualizado com o link novo (revise e commite/dê push quando quiser)."
+fi
+
 echo ""
-echo "App no ar: http://${PUBLIC_IP}:${PORT}"
+echo "App no ar: ${LINK}"
 echo "(desliga sozinho automaticamente apos o tempo limite configurado na Lambda de auto-stop)"
