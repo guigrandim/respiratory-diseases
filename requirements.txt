@@ -1,0 +1,7 @@
+streamlit>=1.38,<2
+pandas>=2.2,<3
+numpy>=1.26,<3
+pillow>=10.0
+requests>=2.32
+altair>=5.0,<6
+boto3>=1.34

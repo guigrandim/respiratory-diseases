@@ -1,0 +1,20 @@
+# Ambientes virtuais do Python
+.venv/
+venv/
+env/
+ENV/
+
+# Caches de código do Python
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Arquivos e pastas do VS Code e Git
+.vscode/
+.git/
+.gitignore
+
+# Sistema operacional
+.DS_Store
+Thumbs.db

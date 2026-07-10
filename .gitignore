@@ -1,0 +1,27 @@
+# Ambientes virtuais do Python
+.venv/
+venv/
+env/
+ENV/
+
+# Caches de codigo do Python
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Credenciais e configuracao local
+.env
+.aws/
+
+# Ferramentas de editor/IDE
+.vscode/
+.idea/
+.claude/
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
