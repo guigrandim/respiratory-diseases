@@ -23,6 +23,9 @@ ENV/
 .claude/
 CLAUDE.md
 
+# Anotacoes internas de planejamento (specs/plans do Claude Code)
+docs/superpowers/
+
 # Sistema operacional
 .DS_Store
 Thumbs.db
