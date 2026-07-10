@@ -45,6 +45,26 @@ docker build -t respiratory-diseases-app .
 docker run -p 8501:8501 -v ~/.aws:/root/.aws:ro respiratory-diseases-app
 ```
 
+## Deploy (ECS Fargate) — liga sob demanda
+
+O app roda em um serviço ECS Fargate (`respiratory-diseases-cluster` /
+`respiratory-diseases-task-service-l0kgkxxb`), mas **fica parado por padrão**
+(`desiredCount=0`) para não gerar custo continuo — é um projeto de
+portfólio, sem tráfego constante.
+
+- **Ligar**: `scripts/iniciar_app.sh` — sobe o serviço, espera a task ficar
+  saudável e imprime o link público (IP direto, sem load balancer — muda a
+  cada start).
+- **Desligar na hora**: `scripts/parar_app.sh`.
+- **Auto-stop**: uma função Lambda (`respiratory-diseases-auto-stop`),
+  disparada a cada 10 minutos por uma regra do EventBridge, derruba o
+  serviço automaticamente depois de 2h de uptime (`MAX_UPTIME_MINUTES`, env
+  var da Lambda) — não é detecção de tráfego (o serviço não tem load
+  balancer para medir requisições), é um limite de tempo de sessão. Ambos os
+  scripts e a Lambda usam apenas `ecs:UpdateService` na task definition e no
+  serviço já existentes; nenhuma outra configuração (porta, imagem, roles do
+  container) muda.
+
 ## Ressalva conhecida: `delta_uti`
 
 `delta_uti` é a feature de **maior peso** no modelo treinado (maior

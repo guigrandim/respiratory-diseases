@@ -19,6 +19,7 @@ ENV/
 # Nao usados em tempo de execucao pelo Streamlit (home.py nao os referencia)
 notebooks/
 assets/
+scripts/
 
 # Sistema operacional
 .DS_Store
