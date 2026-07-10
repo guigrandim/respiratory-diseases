@@ -14,13 +14,15 @@ partir de dados clínicos e de atendimento.
 
 ## Demo ao vivo
 
-Este projeto usa *scale-to-zero* para reduzir custo — o serviço ECS fica
-desligado por padrão (veja a seção "Deploy" abaixo).
+Este projeto usa *scale-to-zero* — o serviço ECS fica desligado por padrão e
+acorda sozinho na primeira visita (veja a seção "Deploy" abaixo).
 
-**Link atual:** nenhuma instância ativa no momento
+**Link:** https://jlqsegnebs6r6sy7sn3ebxskxy0ihkkx.lambda-url.us-east-1.on.aws/
 
-Para ativar uma instância de demonstração, [me contate](mailto:gui.grandim@gmail.com)
-ou siga as instruções de deploy abaixo para rodar você mesmo.
+Se o serviço estiver hibernando, a primeira visita mostra uma página de
+"iniciando..." por ~1-2 minutos enquanto o ECS sobe, depois redireciona
+automaticamente para o app. Esse link é permanente — não muda mais a cada
+deploy.
 
 ## Destaque do projeto (modelo STAR)
 
@@ -105,25 +107,31 @@ docker build -t respiratory-diseases-app .
 docker run -p 8501:8501 -v ~/.aws:/root/.aws:ro respiratory-diseases-app
 ```
 
-## Deploy (ECS Fargate) — liga sob demanda
+## Deploy (ECS Fargate) — liga sozinho sob demanda
 
 O app roda em um serviço ECS Fargate (`respiratory-diseases-cluster` /
 `respiratory-diseases-task-service-l0kgkxxb`), mas **fica parado por padrão**
 (`desiredCount=0`) para não gerar custo continuo — é um projeto de
 portfólio, sem tráfego constante.
 
-- **Ligar**: `scripts/iniciar_app.sh` — sobe o serviço, espera a task ficar
-  saudável e imprime o link público (IP direto, sem load balancer — muda a
-  cada start).
+- **Ligar**: automático. Uma Lambda pública ("porteira",
+  `respiratory-diseases-wake`, código em `scripts/lambda_wake/`) é o link
+  fixo do projeto. Ao receber uma requisição, ela confere o estado do
+  serviço ECS; se estiver parado, chama `ecs:UpdateService` para subir e
+  devolve uma página HTML que se auto-atualiza a cada ~10s; quando a task
+  está `RUNNING` e passou de uma janela de warm-up, devolve um redirect 302
+  direto para o IP público da task (`http://<ip>:8501`) — dali em diante o
+  navegador fala direto com o Fargate, sem a Lambda no meio, então o
+  WebSocket do Streamlit funciona normalmente.
 - **Desligar na hora**: `scripts/parar_app.sh`.
 - **Auto-stop**: uma função Lambda (`respiratory-diseases-auto-stop`),
   disparada a cada 10 minutos por uma regra do EventBridge, derruba o
   serviço automaticamente depois de 2h de uptime (`MAX_UPTIME_MINUTES`, env
-  var da Lambda) — não é detecção de tráfego (o serviço não tem load
-  balancer para medir requisições), é um limite de tempo de sessão. Ambos os
-  scripts e a Lambda usam apenas `ecs:UpdateService` na task definition e no
-  serviço já existentes; nenhuma outra configuração (porta, imagem, roles do
-  container) muda.
+  var da Lambda) — não é detecção de tráfego, é um limite de tempo de
+  sessão.
+- Nenhum ALB/NLB é usado (custo fixo extra não valeria a pena para o volume
+  de tráfego deste projeto) — a porteira usa só a Function URL nativa da
+  Lambda.
 
 ## Ressalva conhecida: `delta_uti`
 
@@ -145,6 +153,9 @@ exata com quem construiu o pipeline de dados de origem.
 - `common.py` — constantes e lógica compartilhada (mapeamento de labels,
   cálculo de features derivadas, invocação da Lambda).
 - `notebooks/training_pipeline.ipynb` — notebook de treino (fonte da verdade).
+- `scripts/lambda_wake/` — código da Lambda "porteira" que liga o ECS sob
+  demanda e serve como link fixo do projeto (ver seção "Deploy").
+- `scripts/parar_app.sh` — desliga o serviço ECS manualmente.
 - `assets/` — ficha oficial de notificação do SIVEP-Gripe (PDF), usada como
   referência para os códigos dos campos do formulário.
 - `assets/img/arquitetura.png` — diagrama da arquitetura usado na seção acima.
