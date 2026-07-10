@@ -1,5 +1,11 @@
 # Classificador de Síndrome Respiratória Aguda Grave (SRAG/COVID-19)
 
+![Python](https://img.shields.io/badge/python-3.11-blue?logo=python&logoColor=white)
+![Streamlit](https://img.shields.io/badge/streamlit-1.38%2B-FF4B4B?logo=streamlit&logoColor=white)
+![XGBoost](https://img.shields.io/badge/xgboost-3.2-0066CC)
+![AWS Lambda](https://img.shields.io/badge/AWS-Lambda-FF9900?logo=awslambda&logoColor=white)
+![License](https://img.shields.io/github/license/guigrandim/respiratory-diseases)
+
 Frontend em Streamlit que consulta um modelo **XGBoost multiclasse**, treinado
 sobre dados do **SIVEP-Gripe** (Sistema de Informação da Vigilância
 Epidemiológica da Gripe, DATASUS), para sugerir a classificação final
@@ -8,11 +14,10 @@ partir de dados clínicos e de atendimento.
 
 ## Demo ao vivo
 
-**Link atual:** offline no momento (última atualização: N/A)
-
-O app roda sob demanda para economizar custo de AWS (veja a seção "Deploy"
-abaixo) — o link acima só funciona enquanto estiver ligado. Se estiver
-offline, [me chame](mailto:gui.grandim@gmail.com) que eu ligo na hora.
+Este projeto usa *scale-to-zero* para reduzir custo — o serviço ECS fica
+desligado por padrão (veja a seção "Deploy" abaixo). Para ativar uma
+instância de demonstração, [me contate](mailto:gui.grandim@gmail.com) ou
+siga as instruções de deploy abaixo para rodar você mesmo.
 
 ## Destaque do projeto (modelo STAR)
 
@@ -69,7 +74,7 @@ conhecidas documentadas de forma transparente em vez de escondidas.
   quanto para consultas ad-hoc de investigação (ex.: a distribuição do
   `delta_uti`, ver ressalva abaixo).
 - O treino (split, feature engineering, XGBoost, avaliação) roda inteiramente
-  no notebook `notebooks/Untitled.ipynb` (fonte da verdade, espelha o que
+  no notebook `notebooks/training_pipeline.ipynb` (fonte da verdade, espelha o que
   roda no SageMaker) e persiste o modelo via `pickle`.
 - A inferência não usa SageMaker Endpoint (conta sem cota para instâncias
   `ml.*`): o Streamlit invoca diretamente uma função Lambda via `boto3`, que
@@ -136,7 +141,7 @@ exata com quem construiu o pipeline de dados de origem.
 - `pages/1_Formulario.py` — formulário de entrada e exibição da previsão.
 - `common.py` — constantes e lógica compartilhada (mapeamento de labels,
   cálculo de features derivadas, invocação da Lambda).
-- `notebooks/Untitled.ipynb` — notebook de treino (fonte da verdade).
+- `notebooks/training_pipeline.ipynb` — notebook de treino (fonte da verdade).
 - `assets/` — ficha oficial de notificação do SIVEP-Gripe (PDF), usada como
   referência para os códigos dos campos do formulário.
 - `assets/img/arquitetura.png` — diagrama da arquitetura usado na seção acima.
