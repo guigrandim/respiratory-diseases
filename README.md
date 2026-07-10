@@ -53,31 +53,7 @@ conhecidas documentadas de forma transparente em vez de escondidas.
 
 ## Arquitetura
 
-```mermaid
-flowchart TD
-    IAM[["IAM<br/>roles e policies"]]
-
-    DADOS["SIVEP-Gripe / DATASUS<br/>(dados históricos)"] --> CATALOG
-    CATALOG{{"Glue Catalog<br/>database_health_bridge.<br/>table_train_gg_solutionstrain"}} --> S3CURADO[("S3<br/>train.parquet")]
-    ATHENA["Athena<br/>(consultas ad-hoc, ex.:<br/>investigação do delta_uti)"] <--> CATALOG
-
-    subgraph PIPELINE["Pipeline SageMaker"]
-        NOTEBOOK["Notebook<br/>notebooks/Untitled.ipynb<br/>feature engineering + treino XGBoost"]
-    end
-
-    S3CURADO --> NOTEBOOK
-    ATHENA -. ad-hoc .-> NOTEBOOK
-    NOTEBOOK --> MODELPKL[("model.pkl (S3)<br/>Booster treinado")]
-
-    STREAMLIT["Formulário Streamlit<br/>home.py + pages/1_Formulario.py"] --> ECS["ECS Fargate<br/>(sob demanda,<br/>desiredCount=0 por padrão)"]
-    ECS -- boto3 invoke --> LAMBDA["AWS Lambda<br/>container, xgboost-cpu,<br/>objective=multi:softprob"]
-    LAMBDA -- s3.download_file --> MODELPKL
-
-    IAM -.-> CATALOG
-    IAM -.-> LAMBDA
-    IAM -.-> ECS
-    IAM -.-> NOTEBOOK
-```
+![Diagrama de arquitetura: SIVEP-Gripe/DATASUS → S3 → Glue Catalog → S3 (train.parquet) → Notebook SageMaker (feature engineering + treino XGBoost) → model.pkl (S3); Formulário Streamlit → ECS Fargate → AWS Lambda → model.pkl](assets/img/arquitetura.png)
 
 - A tabela de origem (`database_health_bridge.table_train_gg_solutionstrain`,
   Glue Catalog) é o dado histórico do SIVEP-Gripe já catalogado; o Athena é
@@ -155,3 +131,4 @@ exata com quem construiu o pipeline de dados de origem.
 - `notebooks/Untitled.ipynb` — notebook de treino (fonte da verdade).
 - `assets/` — ficha oficial de notificação do SIVEP-Gripe (PDF), usada como
   referência para os códigos dos campos do formulário.
+- `assets/img/arquitetura.png` — diagrama da arquitetura usado na seção acima.
