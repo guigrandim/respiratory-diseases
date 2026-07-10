@@ -21,6 +21,7 @@ ENV/
 .vscode/
 .idea/
 .claude/
+CLAUDE.md
 
 # Sistema operacional
 .DS_Store
