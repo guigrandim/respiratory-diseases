@@ -1,5 +1,7 @@
 """Builds the two possible HTTP responses the wake-on-request lambda returns."""
 
+# Página de espera: usa refresh automático via meta tag (a cada 10s) em vez
+# de JS, para funcionar mesmo se o visitante tiver JavaScript desabilitado.
 WAIT_PAGE_HTML = """<!doctype html>
 <html lang="pt-br">
 <head>
@@ -17,6 +19,8 @@ WAIT_PAGE_HTML = """<!doctype html>
 
 
 def wait_response():
+    # Resposta usada tanto quando a Lambda acabou de pedir o start do
+    # serviço quanto quando a task ainda está no warm-up.
     return {
         "statusCode": 200,
         "headers": {"Content-Type": "text/html; charset=utf-8"},
@@ -25,6 +29,7 @@ def wait_response():
 
 
 def redirect_response(ip, port):
+    # 302 para o IP público:porta da task já rodando e aquecida.
     return {
         "statusCode": 302,
         "headers": {"Location": f"http://{ip}:{port}"},
