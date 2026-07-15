@@ -6,6 +6,8 @@ st.set_page_config(page_title="SRAG/COVID - Sobre o projeto", page_icon="📋")
 
 st.title("Classificação de Síndrome Respiratória Aguda Grave (SRAG)")
 
+# Texto introdutorio: explica o modelo (XGBoost), a fonte dos dados
+# (SIVEP-Gripe) e a arquitetura (Streamlit -> Lambda -> SageMaker).
 st.markdown(
     """
 Esta ferramenta usa um modelo **XGBoost multiclasse**, treinado sobre dados do
@@ -19,6 +21,8 @@ classe prevista com a probabilidade de cada uma das 5 classes possíveis.
 """
 )
 
+# Tabela de referencia: mostra o significado de cada codigo 1-5 de
+# classi_fin, a variavel que o modelo prevê.
 st.subheader("Classes de saída (classi_fin)")
 st.table(
     {
@@ -27,6 +31,9 @@ st.table(
     }
 )
 
+# Dicionario de dados: explica os codigos usados nos campos do formulario
+# que nao sao autoexplicativos (a maioria vem direto do dicionario oficial
+# do SIVEP-Gripe).
 st.subheader("Dicionário de campos do formulário")
 st.markdown(
     "As comorbidades e a situação vacinal são preenchidas como perguntas "
@@ -43,6 +50,9 @@ st.table({"Código": list(RAIOX_RES_OPTIONS.keys()), "Significado": list(RAIOX_R
 st.markdown("**Fonte dos dados de vacinação COVID-19 (`fnt_in_cov`)**")
 st.table({"Código": list(FNT_IN_COV_OPTIONS.keys()), "Significado": list(FNT_IN_COV_OPTIONS.values())})
 
+# Campos calculados (nao sao input direto do usuario, sao derivados no
+# formulario) e a explicacao/ressalva sobre delta_uti, que e a feature de
+# maior peso no modelo mas nao consta no dicionario oficial do SIVEP-Gripe.
 st.markdown(
     """
 **Faixa etária (`faixa_etaria_cod`)**: calculada a partir da idade —
@@ -65,4 +75,5 @@ ausência de colunas de data brutas na tabela de origem).
 """
 )
 
+# Link de navegacao para a pagina do formulario de previsao propriamente dito.
 st.page_link("pages/1_Formulario.py", label="Ir para o formulário de previsão", icon="➡️")
